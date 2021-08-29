@@ -9,11 +9,100 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-## R Markdown
+## Background
 
-```{r cars}
-pmlTrain <- read.csv(file = 'data/pml-training.csv')
-pmlTest <- read.csv(file = 'data/pml-testing.csv')
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset).
 
-pmlTest
+Six young healthy participants were asked to perform one set of 10 repetitions of the Unilateral Dumbbell Biceps Curl in five different fashions:
+
+- Class A - exactly according to the specification;
+- Class B - throwing the elbows to the front;
+- Class C - lifting the dumbbell only halfway;
+- Class D - lowering the dumbbell only halfway;
+- Class E - throwing the hips to the front.
+
+## About the data
+
+The data for this project come from this source: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har. If you use the document you create for this class for any purpose please cite them as they have been very generous in allowing their data to be used for this kind of assignment.
+
+## Steps
+
+The following steps were taken for proper manipulation and classification of the data:
+
+- Data pre-processing: Tidy data;
+- Training: 3-fold Cross-Validation observing the best average accuracy choosing Random Forest Classifier algorithm;
+- Model Prediction: With the best model from Cross-Validation, we use the model to predict with the testing set.
+
+## Data Pre-processing
+
+Necessary libraries.
+
+```{r}
+library(caret)
 ```
+
+We will load the data from CSV files considering indicators of missing data such as "NA". 
+
+```{r}
+pmlTrain <- read.csv(file = 'data/pml-training.csv', na.strings = c("NA", "#DIV/0!", ""))
+pmlTest <- read.csv(file = 'data/pml-testing.csv', na.strings = c("NA", "#DIV/0!", ""))
+```
+
+Dimensions for training dataset:
+
+```{r}
+dim(pmlTrain)
+```
+Dimensions for testing dataset:
+
+```{r}
+dim(pmlTest)
+```
+We will remove columns from 1 to 7 considering how they are unnecessary for classification. We also consider only cases with no missing values using the function `complete.cases`.
+
+```{r}
+# Only cases with no missing values
+columnsClean <- complete.cases(t(pmlTrain)) & complete.cases(t(pmlTest))
+
+pmlTrain.clean <- pmlTrain[, columnsClean]
+pmlTest.clean <- pmlTest[, columnsClean]
+
+# Unnecessary columns
+pmlTrain.clean <- pmlTrain.clean[, 8:length(colnames(pmlTrain.clean))]
+pmlTest.clean <- pmlTest.clean[, 8:length(colnames(pmlTest.clean))]
+
+# Remove problem id column
+pmlTest.clean <- pmlTest.clean[, 1:52]
+```
+
+## Training
+
+Finally, we can train the Random Forest model considering 3-fold Cross-Validation for evaluating the model's performance. Note that Cross-Validation already create data partitions for training and testing, in our case, 2 for training and 1 for testing, doing this three times.
+
+```{r}
+set.seed(42)
+
+model <- train(classe~., data = pmlTrain.clean, method = "rf", 
+               trControl = trainControl(method = "cv", number = 3, allowParallel = TRUE),
+               num.threads = 4)
+
+print(model)
+```
+So we have the average accuracy for 3-fold with a 95% CI being:
+
+```{r}
+sprintf("%.4f +- %.4f", mean(model$results$Accuracy), qt(0.975, df = 3-1)*sd(model$results$Accuracy)/sqrt(3))
+```
+And with this, we have the following expected out of sample error with 95% CI:
+
+```{r}
+sprintf("%.4f +- %.4f", 1 - mean(model$results$Accuracy), qt(0.975, df = 3-1)*sd(model$results$Accuracy)/sqrt(3))
+```
+## Model Prediction
+
+With the model from Cross-Validation, we can predict the classes for the original test set.
+
+```{r}
+predict(model, newdata = pmlTest.clean)
+```
+
