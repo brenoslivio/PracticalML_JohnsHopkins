@@ -1,0 +1,19 @@
+---
+title: "Practical Machine Learning Project"
+author: "Breno Lívio"
+date: "8/28/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+```{r cars}
+pmlTrain <- read.csv(file = 'data/pml-training.csv')
+pmlTest <- read.csv(file = 'data/pml-testing.csv')
+
+pmlTest
+```
